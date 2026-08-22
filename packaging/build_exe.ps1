@@ -18,7 +18,7 @@ $PyInstaller = Join-Path $Root ".venv\Scripts\pyinstaller.exe"
 if ($Standalone) {
     Write-Host "Building standalone CUDA bundle (needs a lot of free disk)..."
     & $PyInstaller --noconfirm --clean --distpath (Join-Path $Root "dist") --workpath (Join-Path $Root "build") (Join-Path $PSScriptRoot "standalone.spec")
-    Write-Host "Built dist\Sunder\Sunder.exe — keep the whole Sunder folder together."
+    Write-Host "Built dist\Sunder\Sunder.exe - keep the whole Sunder folder together."
 } else {
     & $PyInstaller --noconfirm --clean --distpath (Join-Path $Root "dist") --workpath (Join-Path $Root "build") (Join-Path $PSScriptRoot "sunder.spec")
     $Built = Join-Path $Root "dist\Sunder.exe"

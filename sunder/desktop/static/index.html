@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sunder</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/logo.svg">
 </head>
 <body>
   <div class="app">
@@ -23,17 +24,13 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h10M5 17h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           Categories
         </button>
-        <button class="nav-btn" data-view="classify">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Classify
-        </button>
         <button class="nav-btn" data-view="review">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12c3.5-6 10.5-6 14 0-3.5 6-10.5 6-14 0Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
           Review
         </button>
-        <button class="nav-btn" data-view="organize">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h7l2 2h7v8.5A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5V8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 8V6.5A1.5 1.5 0 0 1 5.5 5H10l1.5 2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-          Organize
+        <button class="nav-btn nav-settings" data-view="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13a1.8 1.8 0 0 0 .05-2l1.7-1.3-1.7-3-2.05.85a7.2 7.2 0 0 0-1.7-1L15.4 4h-3.8l-.3 2.55a7.2 7.2 0 0 0-1.7 1L7.55 6.7l-1.7 3 1.7 1.3a1.8 1.8 0 0 0 .05 2l-1.7 1.3 1.7 3 2.05-.85a7.2 7.2 0 0 0 1.7 1l.3 2.55h3.8l.3-2.55a7.2 7.2 0 0 0 1.7-1l2.05.85 1.7-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          Settings
         </button>
       </div>
       <p class="rail-foot" id="version">v</p>
@@ -43,7 +40,7 @@
       <header class="top">
         <div>
           <h1 id="view-title">Library</h1>
-          <p class="lede" id="view-lede">Point Sunder at a folder of tracks. Embed once, classify as often as you like.</p>
+          <p class="lede" id="view-lede">Choose a folder of tracks, then embed, scan, report, or run a full analysis.</p>
         </div>
         <div class="top-meta">
           <span class="pill" id="device-pill">device · auto</span>
@@ -53,7 +50,7 @@
 
       <div class="workspace">
         <main class="canvas">
-          <section class="view is-on" id="view-library" data-title="Library" data-lede="Point Sunder at a folder of tracks. Embed once, classify as often as you like.">
+          <section class="view is-on" id="view-library" data-title="Library" data-lede="Choose a folder of tracks, then embed, scan, report, or run a full analysis.">
             <div class="stats" id="library-stats">
               <article><span>Found</span><strong id="stat-found">—</strong></article>
               <article><span>In cache</span><strong id="stat-cache">—</strong></article>
@@ -68,26 +65,14 @@
                 <p>Walks nested playlists by default. Hidden tooling dirs (.git, .venv, cache) are skipped.</p>
               </div>
               <div class="path-row">
-                <input id="library" type="text" spellcheck="false" placeholder="D:\music\ambience">
-                <button class="btn ghost" id="browse-library" type="button">Browse</button>
+                <input id="library" type="text" spellcheck="false" placeholder="D:\music\ambience" aria-label="Library folder">
               </div>
-              <div class="option-row">
-                <label class="check"><input id="recursive" type="checkbox" checked> Scan nested folders</label>
-                <label class="check"><input id="force" type="checkbox"> Re-embed cached tracks</label>
-                <label class="field-inline">Limit <input id="limit" type="number" min="1" placeholder="all"></label>
-                <label class="field-inline">Device
-                  <select id="device">
-                    <option value="auto">auto</option>
-                    <option value="cuda">cuda</option>
-                    <option value="cpu">cpu</option>
-                    <option value="mps">mps</option>
-                  </select>
-                </label>
-              </div>
-              <div class="actions">
-                <button class="btn gold" id="btn-embed" type="button">Embed library</button>
-                <button class="btn" id="btn-scan" type="button">Scan only</button>
-                <button class="btn ghost" id="btn-pipeline" type="button">Embed → classify → report</button>
+              <div class="lib-ops" role="group" aria-label="Library actions">
+                <button class="btn ghost has-tip" id="browse-library" type="button" data-tip="Pick a folder of audio tracks to use as the library." aria-label="Browse. Pick a folder of audio tracks to use as the library.">Browse</button>
+                <button class="btn gold has-tip" id="btn-embed" type="button" data-tip="Compute CLAP embeddings and cache them. Slow; run once per library." aria-label="Embed. Compute CLAP embeddings and cache them. Slow; run once per library.">Embed</button>
+                <button class="btn has-tip" id="btn-scan" type="button" data-tip="Count tracks in the folder without embedding or classifying." aria-label="Scan. Count tracks in the folder without embedding or classifying.">Scan</button>
+                <button class="btn has-tip" id="btn-report" type="button" data-tip="Write report.html from the latest classification results." aria-label="Report. Write report.html from the latest classification results.">Report</button>
+                <button class="btn ghost has-tip" id="btn-pipeline" type="button" data-tip="Embed, classify every cached track, then write the HTML report." aria-label="Full analysis. Embed, classify every cached track, then write the HTML report.">Full analysis</button>
               </div>
               <p class="hint" id="scan-hint"></p>
             </div>
@@ -104,40 +89,6 @@
                 <button class="btn gold" id="btn-save-cats" type="button">Save YAML</button>
               </div>
               <textarea id="yaml" spellcheck="false" aria-label="Category YAML"></textarea>
-            </div>
-          </section>
-
-          <section class="view" id="view-classify" hidden data-title="Classify" data-lede="Match cached embeddings to your category prompts. Fast to iterate.">
-            <div class="card">
-              <p class="eyebrow">Assignment</p>
-              <h2>Score every cached track</h2>
-              <div class="sliders">
-                <label>
-                  <span>Confidence threshold <em id="threshold-val">0.35</em></span>
-                  <input id="threshold" type="range" min="0.05" max="0.9" step="0.01" value="0.35">
-                  <small>Softmax below this is flagged for review.</small>
-                </label>
-                <label>
-                  <span>Min margin <em id="margin-val">0.02</em></span>
-                  <input id="min-margin" type="range" min="0" max="0.2" step="0.005" value="0.02">
-                  <small>Small cosine gap vs the runner-up is also flagged.</small>
-                </label>
-              </div>
-              <div class="option-row">
-                <label class="check"><input id="save-file" type="checkbox" checked> Write results.csv</label>
-                <label class="check"><input id="embed-track" type="checkbox"> Stamp tags into audio files</label>
-              </div>
-              <div class="path-grid">
-                <label>Cache folder<input id="cache" type="text" spellcheck="false" value=".sunder_cache"></label>
-                <label>Results CSV<input id="results" type="text" spellcheck="false" value="results.csv"></label>
-                <label>Report HTML<input id="report" type="text" spellcheck="false" value="report.html"></label>
-                <label>Categories YAML<input id="categories-path" type="text" spellcheck="false" value="categories.yaml"></label>
-              </div>
-              <div class="actions">
-                <button class="btn gold" id="btn-classify" type="button">Classify</button>
-                <button class="btn" id="btn-report" type="button">Write report</button>
-                <button class="btn ghost" id="btn-tag" type="button">Tag files from CSV</button>
-              </div>
             </div>
           </section>
 
@@ -171,32 +122,94 @@
             </div>
           </section>
 
-          <section class="view" id="view-organize" hidden data-title="Organize" data-lede="Copy into category folders first. Move only after you have spot-checked the review.">
-            <div class="card">
-              <p class="eyebrow">Sort files</p>
-              <h2>Per-category folders</h2>
-              <div class="path-row">
-                <input id="organize-dest" type="text" spellcheck="false" placeholder="organized">
-                <button class="btn ghost" id="browse-dest" type="button">Browse</button>
+          <section class="view" id="view-settings" hidden data-title="Settings" data-lede="Tune scanning, classification, and how files are copied into category folders.">
+            <div class="settings-stack">
+              <div class="split-head">
+                <div>
+                  <p class="eyebrow">Preferences</p>
+                  <h2>Scan, classify, organize</h2>
+                  <p>These apply to Library actions and to the jobs below. Re-classify after editing categories — no need to re-embed.</p>
+                </div>
+                <button class="btn gold" id="btn-save-settings" type="button">Save settings</button>
               </div>
-              <div class="mode-cards">
-                <label class="mode">
-                  <input type="radio" name="org-mode" value="copy" checked>
-                  <span>
-                    <strong>Copy</strong>
-                    Safe default. Originals stay put.
-                  </span>
-                </label>
-                <label class="mode warn">
-                  <input type="radio" name="org-mode" value="move">
-                  <span>
-                    <strong>Move</strong>
-                    Relocates the original files.
-                  </span>
-                </label>
+
+              <div class="card">
+                <p class="eyebrow">Library scan</p>
+                <h2>How folders are read</h2>
+                <div class="option-row">
+                  <label class="check"><input id="recursive" type="checkbox" checked> Scan nested folders</label>
+                  <label class="check"><input id="force" type="checkbox"> Re-embed cached tracks</label>
+                  <label class="field-inline">Limit <input id="limit" type="number" min="1" placeholder="all"></label>
+                  <label class="field-inline">Device
+                    <select id="device">
+                      <option value="auto">auto</option>
+                      <option value="cuda">cuda</option>
+                      <option value="cpu">cpu</option>
+                      <option value="mps">mps</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-              <div class="actions">
-                <button class="btn gold" id="btn-organize" type="button">Organize</button>
+
+              <div class="settings-split">
+                <div class="card">
+                  <p class="eyebrow">Classify</p>
+                  <h2>Match prompts to cached tracks</h2>
+                  <div class="sliders">
+                    <label>
+                      <span>Confidence threshold <em id="threshold-val">0.35</em></span>
+                      <input id="threshold" type="range" min="0.05" max="0.9" step="0.01" value="0.35">
+                      <small>Softmax below this is flagged for review.</small>
+                    </label>
+                    <label>
+                      <span>Min margin <em id="margin-val">0.02</em></span>
+                      <input id="min-margin" type="range" min="0" max="0.2" step="0.005" value="0.02">
+                      <small>Small cosine gap vs the runner-up is also flagged.</small>
+                    </label>
+                  </div>
+                  <div class="option-row">
+                    <label class="check"><input id="save-file" type="checkbox" checked> Write results.csv</label>
+                    <label class="check"><input id="embed-track" type="checkbox"> Stamp tags into audio files</label>
+                  </div>
+                  <div class="path-grid">
+                    <label>Cache folder<input id="cache" type="text" spellcheck="false" value=".sunder_cache"></label>
+                    <label>Results CSV<input id="results" type="text" spellcheck="false" value="results.csv"></label>
+                    <label>Report HTML<input id="report" type="text" spellcheck="false" value="report.html"></label>
+                    <label>Categories YAML<input id="categories-path" type="text" spellcheck="false" value="categories.yaml"></label>
+                  </div>
+                  <div class="actions">
+                    <button class="btn gold" id="btn-classify" type="button">Classify</button>
+                    <button class="btn ghost" id="btn-tag" type="button">Tag files from CSV</button>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <p class="eyebrow">Organize</p>
+                  <h2>Per-category folders</h2>
+                  <div class="path-row">
+                    <input id="organize-dest" type="text" spellcheck="false" placeholder="organized" aria-label="Organize destination">
+                    <button class="btn ghost" id="browse-dest" type="button">Browse</button>
+                  </div>
+                  <div class="mode-cards">
+                    <label class="mode">
+                      <input type="radio" name="org-mode" value="copy" checked>
+                      <span>
+                        <strong>Copy</strong>
+                        Safe default. Originals stay put.
+                      </span>
+                    </label>
+                    <label class="mode warn">
+                      <input type="radio" name="org-mode" value="move">
+                      <span>
+                        <strong>Move</strong>
+                        Relocates the original files.
+                      </span>
+                    </label>
+                  </div>
+                  <div class="actions">
+                    <button class="btn gold" id="btn-organize" type="button">Organize</button>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

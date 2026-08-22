@@ -16,12 +16,13 @@
   };
 
   const copy = {
-    library: ["Library", "Point Sunder at a folder of tracks. Embed once, classify as often as you like."],
+    library: ["Library", "Choose a folder of tracks, then embed, scan, report, or run a full analysis."],
     categories: ["Categories", "Edit prompt wording freely. Re-classify after saving — no need to re-embed."],
-    classify: ["Classify", "Match cached embeddings to your category prompts. Fast to iterate."],
     review: ["Review", "Listen, filter, and spot-check low-confidence assignments before you organize."],
-    organize: ["Organize", "Copy into category folders first. Move only after you have spot-checked the review."],
+    settings: ["Settings", "Tune scanning, classification, and how files are copied into category folders."],
   };
+
+  let deviceName = "";
 
   function toast(message, err) {
     const node = document.createElement("div");
@@ -85,6 +86,13 @@
     $("threshold").value = s.threshold ?? 0.35;
     $("min-margin").value = s.min_margin ?? 0.02;
     syncSliders();
+    syncDevicePill();
+  }
+
+  function syncDevicePill() {
+    const bits = ["device · " + ($("device").value || "auto")];
+    if (deviceName) bits.push(deviceName);
+    $("device-pill").textContent = bits.join(" · ");
   }
 
   function syncSliders() {
@@ -105,7 +113,7 @@
       if (on) btn.setAttribute("aria-current", "page");
       else btn.removeAttribute("aria-current");
     });
-    const [title, lede] = copy[name];
+    const [title, lede] = copy[name] || copy.library;
     $("view-title").textContent = title;
     $("view-lede").textContent = lede;
     if (name === "review") loadResults();
@@ -370,10 +378,8 @@
     }
     api("/api/device")
       .then((dev) => {
-        const bits = ["device · " + ($("device").value || "auto")];
-        if (dev.name) bits.push(dev.name);
-        else bits.push(dev.default);
-        $("device-pill").textContent = bits.join(" · ");
+        deviceName = dev.name || dev.default || "";
+        syncDevicePill();
       })
       .catch(() => {});
 
@@ -384,6 +390,16 @@
     $("min-margin").addEventListener("input", syncSliders);
     $("browse-library").addEventListener("click", () => browseInto($("library")));
     $("browse-dest").addEventListener("click", () => browseInto($("organize-dest")));
+    $("device").addEventListener("change", syncDevicePill);
+    $("btn-save-settings").addEventListener("click", async () => {
+      try {
+        await api("/api/settings", { method: "POST", body: JSON.stringify(settingsFromForm()) });
+        syncDevicePill();
+        toast("Settings saved.");
+      } catch (err) {
+        toast(err.message, true);
+      }
+    });
     $("btn-scan").addEventListener("click", async () => {
       try {
         await api("/api/settings", { method: "POST", body: JSON.stringify(settingsFromForm()) });

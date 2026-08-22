@@ -44,10 +44,9 @@ Use `--browser` if you want the UI in your default browser instead (also the fal
 
 | Control | Same as |
 |---|---|
-| Embed library | `sunder embed` |
-| Classify | `sunder classify --save-file` / `--embed-track` |
-| Review player | `sunder report`, with playback in-app |
-| Organize | `sunder organize` (copy by default; move asks you to type `MOVE`) |
+| Library · Embed / Scan / Report / Full analysis | `sunder embed`, scan, `sunder report`, or embed → classify → report |
+| Review player | playback in-app; open `report.html` |
+| Settings · Classify / Organize | `sunder classify --save-file` / `--embed-track`, and `sunder organize` (copy by default; move asks you to type `MOVE`) |
 
 Jobs run on a background thread so the window stays responsive. Cancel writes any embeddings already finished.
 
@@ -138,7 +137,7 @@ Recursive scan of `.mp3`, `.wav`, `.flac`, `.ogg` under the folder you pass to `
 
 ## Typical workflow for thousands of tracks
 
-0. `python -m sunder app` and run **Embed → classify → report** from the window, or:
+0. `python -m sunder app` and run **Full analysis** from Library, or:
 1. `embed --limit 20` on a sample, `classify --save-file`, open the report, tweak prompt wording.
 2. `embed` the full library (GPU: minutes; CPU: on the order of 1–2 hours).
 3. `classify --save-file --embed-track` → `report` → adjust YAML → `classify --save-file` again.

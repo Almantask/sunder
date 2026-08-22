@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+import ctypes
+import sys
+
+
+def _windows_app_id() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Sunder.Desktop")
+    except Exception:
+        pass
+
 
 def launch(host: str = "127.0.0.1", port: int = 0, browser: bool = False) -> int:
     import threading
     import webbrowser
 
+    from sunder.desktop.runtime import icon_path
     from sunder.desktop.server import make_server
 
     httpd = make_server(host, port)
@@ -35,6 +48,7 @@ def launch(host: str = "127.0.0.1", port: int = 0, browser: bool = False) -> int
             except KeyboardInterrupt:
                 print("Stopping.", flush=True)
             return 0
+        _windows_app_id()
         webview.create_window(
             "Sunder",
             url,
@@ -44,7 +58,11 @@ def launch(host: str = "127.0.0.1", port: int = 0, browser: bool = False) -> int
             background_color="#08090c",
             text_select=True,
         )
-        webview.start()
+        icon = icon_path()
+        if icon.is_file():
+            webview.start(icon=str(icon))
+        else:
+            webview.start()
         return 0
     finally:
         httpd.shutdown()

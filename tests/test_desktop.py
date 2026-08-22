@@ -134,11 +134,23 @@ class DesktopHttpTests(unittest.TestCase):
         with urlopen(req, timeout=5) as resp:
             html = resp.read().decode("utf-8")
             self.assertIn("Sunder", html)
-            self.assertIn("Embed library", html)
+            self.assertIn("Full analysis", html)
+            self.assertIn("data-view=\"settings\"", html)
+            self.assertIn("data-tip=", html)
+            self.assertNotIn("data-view=\"classify\"", html)
+            self.assertNotIn("data-view=\"organize\"", html)
         status, payload, _ = self._json("/api/bootstrap")
         self.assertEqual(status, 200)
         self.assertIn("settings", payload)
         self.assertIn("version", payload)
+
+    def test_favicon_served(self) -> None:
+        req = Request(self.base + "/favicon.ico")
+        with urlopen(req, timeout=5) as resp:
+            data = resp.read()
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(data[:4], b"\x00\x00\x01\x00")
+            self.assertGreater(len(data), 64)
 
     def test_move_requires_confirm(self) -> None:
         status, payload, _ = self._json(
@@ -176,10 +188,12 @@ class DesktopHttpTests(unittest.TestCase):
 
 class RuntimeAndLauncherTests(unittest.TestCase):
     def test_static_dir(self) -> None:
-        from sunder.desktop.runtime import is_frozen, static_dir
+        from sunder.desktop.runtime import icon_path, is_frozen, static_dir
 
         self.assertFalse(is_frozen())
         self.assertTrue((static_dir() / "index.html").is_file())
+        self.assertTrue((static_dir() / "favicon.ico").is_file())
+        self.assertEqual(icon_path(), static_dir() / "favicon.ico")
 
     def test_seed_defaults(self) -> None:
         from sunder.desktop.runtime import seed_defaults

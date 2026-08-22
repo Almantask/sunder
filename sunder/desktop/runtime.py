@@ -43,6 +43,10 @@ def static_dir() -> Path:
     return Path(__file__).resolve().parent / "static"
 
 
+def icon_path() -> Path:
+    return static_dir() / "favicon.ico"
+
+
 def ensure_stdio() -> None:
     """Windowed exes often have stdout/stderr set to None."""
     if sys.stdout is None:

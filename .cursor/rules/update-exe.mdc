@@ -1,0 +1,21 @@
+---
+description: Rebuild Sunder.exe after finishing each change
+alwaysApply: true
+---
+
+# Update exe after each change
+
+After you finish the user's requested work and have written or modified files, rebuild the thin launcher **before you stop**.
+
+1. Read and follow `.cursor/skills/update-exe/SKILL.md`.
+2. From the repo root run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\build_exe.ps1
+```
+
+3. Confirm `Sunder.exe` in the repo root was updated (and `dist\Sunder.exe`).
+
+Do **not** pass `-Standalone` unless the user asked for the portable CUDA bundle.
+
+Skip the rebuild only if you made no file changes, or the user said not to build.
