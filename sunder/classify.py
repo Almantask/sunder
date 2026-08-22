@@ -10,6 +10,7 @@ import numpy as np
 
 from sunder.config import flatten_prompts, load_categories
 from sunder.embeddings import ClapEmbedder, EmbeddingCache
+from sunder.progress import check_cancel, emit as emit_progress
 
 DEFAULT_THRESHOLD = 0.35
 DEFAULT_MIN_MARGIN = 0.02
@@ -188,17 +189,35 @@ def classify_cache(
     device: str | None = None,
     write_csv: bool = True,
     write_tags: bool = True,
+    progress=None,
+    should_cancel=None,
 ) -> list[Classification]:
     cache = EmbeddingCache(cache_dir)
     items = cache.items()
     if not items:
         raise RuntimeError("No embeddings in cache. Run `python -m sunder embed <folder>` first.")
 
+    check_cancel(should_cancel)
     categories = load_categories(categories_path)
     prompt_texts, _labels = flatten_prompts(categories)
+    emit_progress(
+        progress,
+        stage="load_model",
+        message="Loading text encoder…",
+        current=0,
+        total=len(items),
+    )
     embedder = ClapEmbedder(model_id=cache.model_id, device=device)
     print(f"Classifying {len(items)} tracks into {len(categories)} categories...", flush=True)
     prompt_embs = embedder.encode_texts(prompt_texts)
+    check_cancel(should_cancel)
+    emit_progress(
+        progress,
+        stage="score",
+        message="Scoring tracks…",
+        current=0,
+        total=len(items),
+    )
     rows = classify_embeddings(
         items,
         categories,
@@ -222,11 +241,23 @@ def classify_cache(
     if write_tags:
         from sunder.tags import tag_rows
 
-        written, tag_errors = tag_rows(rows, cache=cache)
+        written, tag_errors = tag_rows(
+            rows,
+            cache=cache,
+            progress=progress,
+            should_cancel=should_cancel,
+        )
         print(f"Wrote tags on {written} files ({tag_errors} failed)", flush=True)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row.category] = counts.get(row.category, 0) + 1
     for name, count in sorted(counts.items(), key=lambda item: (-item[1], item[0].lower())):
         print(f"  {count:5d}  {name}", flush=True)
+    emit_progress(
+        progress,
+        stage="done",
+        message=f"Classified {len(rows)} tracks ({low} low-confidence)",
+        current=len(rows),
+        total=len(rows),
+    )
     return rows

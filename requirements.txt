@@ -6,3 +6,4 @@ miniaudio>=1.59
 PyYAML>=6.0.1
 tqdm>=4.66.0
 mutagen>=1.47.0
+pywebview>=5.0

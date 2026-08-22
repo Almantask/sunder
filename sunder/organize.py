@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 from sunder.classify import Classification, read_results_csv
+from sunder.progress import check_cancel, emit as emit_progress
 
 WIN_INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 WIN_RESERVED = {
@@ -46,16 +47,30 @@ def organize_rows(
     rows: list[Classification],
     dest_root: str | Path,
     mode: str = "copy",
+    *,
+    progress=None,
+    should_cancel=None,
 ) -> tuple[int, int, int]:
     if mode not in {"copy", "move"}:
         raise ValueError("mode must be 'copy' or 'move'")
+    check_cancel(should_cancel)
     dest_root = Path(dest_root)
     dest_root.mkdir(parents=True, exist_ok=True)
     copied = 0
     skipped = 0
     missing = 0
     action = shutil.copy2 if mode == "copy" else shutil.move
-    for row in rows:
+    total = len(rows)
+    for index, row in enumerate(rows, 1):
+        check_cancel(should_cancel)
+        emit_progress(
+            progress,
+            stage="organize",
+            message=row.path.name,
+            current=index,
+            total=total,
+            path=str(row.path),
+        )
         source = row.path
         if not source.is_file():
             missing += 1
@@ -76,11 +91,20 @@ def organize_results(
     results_csv: str | Path,
     dest_root: str | Path,
     mode: str = "copy",
+    *,
+    progress=None,
+    should_cancel=None,
 ) -> tuple[int, int, int]:
     rows = read_results_csv(results_csv)
     if not rows:
         raise RuntimeError(f"No rows in {results_csv}. Run classify first.")
-    copied, skipped, missing = organize_rows(rows, dest_root, mode=mode)
+    copied, skipped, missing = organize_rows(
+        rows,
+        dest_root,
+        mode=mode,
+        progress=progress,
+        should_cancel=should_cancel,
+    )
     verb = "Copied" if mode == "copy" else "Moved"
     print(
         f"{verb} {copied} files into {dest_root}  (skipped {skipped}, missing {missing})",

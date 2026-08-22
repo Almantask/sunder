@@ -20,6 +20,37 @@ If you have an NVIDIA GPU, install a CUDA build of PyTorch **before** `requireme
 
 The first `embed` / `classify` run downloads `laion/larger_clap_music` from Hugging Face (about 1 GB) into the local Hugging Face cache.
 
+## Desktop app
+
+Double-click **`Sunder.exe`** in the repo folder, or from a terminal:
+
+```powershell
+.\.venv\Scripts\python -m sunder app
+```
+
+Build (or rebuild) the exe with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging\build_exe.ps1
+```
+
+That produces a small launcher at `Sunder.exe` and `dist\Sunder.exe`. It starts this repo’s `.venv` — keep the exe next to `.venv`. A fully portable CUDA bundle (`packaging\build_exe.ps1 -Standalone`) copies PyTorch into `dist\Sunder\` and needs on the order of 15 GB free disk; the launcher is the usual path.
+
+Use `--browser` if you want the UI in your default browser instead (also the fallback when `pywebview` is not installed):
+
+```powershell
+.\.venv\Scripts\python -m sunder app --browser
+```
+
+| Control | Same as |
+|---|---|
+| Embed library | `sunder embed` |
+| Classify | `sunder classify --save-file` / `--embed-track` |
+| Review player | `sunder report`, with playback in-app |
+| Organize | `sunder organize` (copy by default; move asks you to type `MOVE`) |
+
+Jobs run on a background thread so the window stays responsive. Cancel writes any embeddings already finished.
+
 ## 1. Edit categories
 
 Open [`categories.yaml`](categories.yaml). It is pre-filled with the D&D ambience taxonomy from [`suno/prompts/`](suno/prompts/). Edit names and phrasings freely — more descriptions usually improve matching:
@@ -107,6 +138,7 @@ Recursive scan of `.mp3`, `.wav`, `.flac`, `.ogg` under the folder you pass to `
 
 ## Typical workflow for thousands of tracks
 
+0. `python -m sunder app` and run **Embed → classify → report** from the window, or:
 1. `embed --limit 20` on a sample, `classify --save-file`, open the report, tweak prompt wording.
 2. `embed` the full library (GPU: minutes; CPU: on the order of 1–2 hours).
 3. `classify --save-file --embed-track` → `report` → adjust YAML → `classify --save-file` again.

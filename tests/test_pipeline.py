@@ -175,6 +175,31 @@ class OrganizeAndReportTests(unittest.TestCase):
             self.assertTrue((dest / "rain" / "track.wav").is_file())
             self.assertTrue(src.is_file())
 
+    def test_copy_stops_when_cancelled(self) -> None:
+        from sunder.progress import Cancelled
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "track.wav"
+            write_sine_wav(src)
+            dest = root / "out"
+            rows = [
+                Classification(
+                    path=src,
+                    category="rain",
+                    confidence=0.9,
+                    score=0.4,
+                    runner_up="ocean",
+                    runner_up_score=0.1,
+                    margin=0.3,
+                    low_confidence=False,
+                    matched_prompt="rain",
+                )
+            ]
+            with self.assertRaises(Cancelled):
+                organize_rows(rows, dest, mode="copy", should_cancel=lambda: True)
+            self.assertFalse((dest / "rain" / "track.wav").exists())
+
     def test_report_contains_players_and_review(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             wav = Path(tmp) / "storm.wav"
@@ -286,6 +311,15 @@ class CliHelpTests(unittest.TestCase):
         with patch("sys.stdout", new=StringIO()):
             with self.assertRaises(SystemExit) as raised:
                 cli_main(["--help"])
+        self.assertEqual(raised.exception.code, 0)
+
+    def test_app_help_exits_zero(self) -> None:
+        from io import StringIO
+        from unittest.mock import patch
+
+        with patch("sys.stdout", new=StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                cli_main(["app", "--help"])
         self.assertEqual(raised.exception.code, 0)
 
 

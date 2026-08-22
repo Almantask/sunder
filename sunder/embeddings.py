@@ -12,6 +12,8 @@ from typing import Any, Sequence
 import numpy as np
 from tqdm import tqdm
 
+from sunder.progress import Cancelled, check_cancel, emit as emit_progress
+
 AUDIO_SUFFIXES = {".mp3", ".wav", ".flac", ".ogg", ".oga"}
 SKIP_DIR_NAMES = {
     ".git",
@@ -461,7 +463,10 @@ def embed_library(
     device: str | None = None,
     model_id: str = MODEL_ID,
     recursive: bool = True,
+    progress=None,
+    should_cancel=None,
 ) -> EmbeddingCache:
+    emit_progress(progress, stage="scan", message="Scanning audio files…")
     files = scan_audio(audio_root, recursive=recursive)
     if limit is not None:
         files = files[: max(0, limit)]
@@ -473,26 +478,73 @@ def embed_library(
     pending = [path for path in files if force or not cache.is_current(path)]
     skipped = len(files) - len(pending)
     scope = "recursively" if recursive else "in the top folder only"
-    print(
-        f"Found {len(files)} tracks {scope} ({skipped} cached, {len(pending)} to embed)",
-        flush=True,
+    found_msg = (
+        f"Found {len(files)} tracks {scope} ({skipped} cached, {len(pending)} to embed)"
+    )
+    print(found_msg, flush=True)
+    emit_progress(
+        progress,
+        stage="scan",
+        message=found_msg,
+        current=0,
+        total=len(pending),
+        found=len(files),
+        cached=skipped,
+        pending=len(pending),
     )
 
     if pending:
+        check_cancel(should_cancel)
+        emit_progress(
+            progress,
+            stage="load_model",
+            message=f"Loading {model_id}…",
+            current=0,
+            total=len(pending),
+        )
         embedder = ClapEmbedder(model_id=model_id, device=device)
         embedder.load()
         errors = 0
-        for path in tqdm(pending, desc="Embedding", unit="track"):
-            try:
-                windows = load_windows(path)
-                vector = embedder.encode_audio_windows(windows)
-                cache.put(path, vector)
-            except Exception as exc:
-                errors += 1
-                tqdm.write(f"SKIP {path.name}: {exc}")
+        track_iter = pending if progress is not None else tqdm(pending, desc="Embedding", unit="track")
+        try:
+            for index, path in enumerate(track_iter, 1):
+                check_cancel(should_cancel)
+                emit_progress(
+                    progress,
+                    stage="embed",
+                    message=path.name,
+                    current=index,
+                    total=len(pending),
+                    path=str(path),
+                )
+                try:
+                    windows = load_windows(path)
+                    vector = embedder.encode_audio_windows(windows)
+                    cache.put(path, vector)
+                except Cancelled:
+                    raise
+                except Exception as exc:
+                    errors += 1
+                    line = f"SKIP {path.name}: {exc}"
+                    if progress is None:
+                        tqdm.write(line)
+                    else:
+                        print(line, flush=True)
+        except Cancelled:
+            cache.save()
+            print("Cancelled. Cache saved.", flush=True)
+            raise
         cache.save()
         print(f"Cache saved ({errors} failed)", flush=True)
+        emit_progress(
+            progress,
+            stage="done",
+            message=f"Cache saved ({errors} failed)",
+            current=len(pending),
+            total=len(pending),
+        )
     else:
         cache.save()
         print("Nothing new to embed.", flush=True)
+        emit_progress(progress, stage="done", message="Nothing new to embed.", current=0, total=0)
     return cache

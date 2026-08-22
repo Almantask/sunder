@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sunder.classify import Classification
 from sunder.embeddings import EmbeddingCache
+from sunder.progress import check_cancel, emit as emit_progress
 
 SUNDER_CATEGORY_DESC = "SUNDER_CATEGORY"
 SUNDER_CONFIDENCE_DESC = "SUNDER_CONFIDENCE"
@@ -63,11 +64,26 @@ def write_row_tags(row: Classification) -> None:
     )
 
 
-def tag_rows(rows: list[Classification], cache: EmbeddingCache | None = None) -> tuple[int, int]:
+def tag_rows(
+    rows: list[Classification],
+    cache: EmbeddingCache | None = None,
+    progress=None,
+    should_cancel=None,
+) -> tuple[int, int]:
     """Write tags for each row. Refresh embedding-cache stats so files are not re-embedded."""
     written = 0
     errors = 0
-    for row in rows:
+    total = len(rows)
+    for index, row in enumerate(rows, 1):
+        check_cancel(should_cancel)
+        emit_progress(
+            progress,
+            stage="tag",
+            message=row.path.name,
+            current=index,
+            total=total,
+            path=str(row.path),
+        )
         if not row.path.is_file():
             errors += 1
             print(f"MISSING {row.path}", flush=True)

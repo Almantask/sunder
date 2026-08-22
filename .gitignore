@@ -6,3 +6,7 @@ __pycache__/
 results.csv
 report.html
 organized/
+build/
+dist/
+Sunder.exe
+

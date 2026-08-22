@@ -80,6 +80,15 @@ def build_parser() -> argparse.ArgumentParser:
     tag = sub.add_parser("tag", help="Write category tags from results.csv into audio files")
     tag.add_argument("--results", type=Path, default=Path("results.csv"))
     tag.add_argument("--cache", type=Path, default=Path(".sunder_cache"))
+
+    app = sub.add_parser("app", help="Open the desktop categorizer")
+    app.add_argument(
+        "--browser",
+        action="store_true",
+        help="use the system browser instead of a native window",
+    )
+    app.add_argument("--host", default="127.0.0.1")
+    app.add_argument("--port", type=int, default=0, help="port (0 = pick a free port)")
     return parser
 
 
@@ -130,6 +139,10 @@ def main(argv: list[str] | None = None) -> int:
             written, errors = tag_rows(rows, cache=cache)
             print(f"Wrote tags on {written} files ({errors} failed)", flush=True)
             return 0
+        if args.command == "app":
+            from sunder.desktop import launch
+
+            return launch(host=args.host, port=args.port, browser=args.browser)
     except KeyboardInterrupt:
         print("Interrupted.", file=sys.stderr)
         return 130
