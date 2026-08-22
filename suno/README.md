@@ -81,3 +81,7 @@ downloads/
 - Files that already exist (non-empty `.mp3`) are skipped. Re-run anytime to pick up new likes or playlist tracks.
 - Clips still generating, or with no `audio_url`, are reported and skipped.
 - Audio is the same MP3 the site's download button produces. WAV/lossless is not supported.
+
+## Prompt library
+
+Ready-to-paste Style prompts for generating the D&D ambience library live in [`prompts/`](prompts/), one markdown file per category. Start at [`prompts/README.md`](prompts/README.md). Name each Suno playlist to match the category (plus intensity, e.g. `Boss III`) so this downloader lands tracks in the right folder.
