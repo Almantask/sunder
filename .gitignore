@@ -2,3 +2,7 @@
 downloads/
 __pycache__/
 *.pyc
+.sunder_cache/
+results.csv
+report.html
+organized/

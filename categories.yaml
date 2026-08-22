@@ -1,0 +1,117 @@
+# Fixed taxonomy for zero-shot CLAP classification.
+# Names match the D&D ambience library in suno/prompts/.
+# Each category can have several phrasings — edit freely and re-run
+# `classify` (no need to re-embed).
+
+ancient_discovery:
+  - ancient discovery ambience
+  - awe of uncovering forgotten ruins
+  - deep strings duduk harp and distant choir
+  - cinematic ancient wonder and stillness
+aqua:
+  - underwater ocean ambience
+  - submerged weightless watery pads
+  - harp glissandi and glass bells under the sea
+  - aquatic cinematic fantasy atmosphere
+boss:
+  - dark orchestral boss fight music
+  - menacing low brass taiko and string ostinato
+  - epic dungeon boss atmosphere
+  - wordless choir and ominous drums
+combat:
+  - hybrid orchestral combat music
+  - staccato strings war drums and bold brass
+  - battle underscore for a fantasy fight
+  - driving action combat ambience
+dark_and_creepy:
+  - genuine horror ambience
+  - dissonant drones detuned strings and bowed metal
+  - creepy dark atmosphere with creaks
+  - unsettling horror soundscape
+defeat:
+  - defeat and aftermath music
+  - funereal solo cello felt piano and dark strings
+  - somber loss after a battle
+ethereal:
+  - ethereal otherworldly shimmer
+  - glowing pads celesta and glass tones
+  - wordless female voice celestial atmosphere
+exploration:
+  - exploration on the open road
+  - acoustic guitar wooden flute and warm strings
+  - traveling adventure ambience
+exploration_above_ground:
+  - sunlit overworld exploration
+  - celtic folk fiddle whistle and pipes
+  - bright outdoor travel music
+exploration_underground:
+  - dungeon underground exploration
+  - cavern drones water drips and low resonances
+  - dark cave atmosphere
+feast:
+  - tavern feast music
+  - fiddle hammered dulcimer lute and frame drum
+  - lively inn celebration
+forest:
+  - green woodland forest ambience
+  - harp wooden flute and fingerpicked guitar
+  - celtic forest atmosphere
+forest_swamp_combat:
+  - primal organic swamp combat
+  - tribal drums low winds and rattles
+  - marsh battle music
+forest_tunes:
+  - bard woodland folk tunes
+  - melodic songlike forest folk music
+goofy:
+  - cartoon comedy music
+  - pizzicato bassoon tuba and slide whistle
+  - silly lighthearted fantasy cue
+happy:
+  - cheerful village music
+  - tin whistle fiddle lute and glockenspiel
+  - bright happy folk celebration
+melancholy:
+  - bittersweet melancholy music
+  - felt piano solo cello and soft rain-like texture
+  - wistful reflection atmosphere
+morning:
+  - dawn morning ambience
+  - oboe flute harp and brightening strings
+  - sunrise warmth in a fantasy world
+mystery:
+  - mystery and intrigue music
+  - sparse piano tremolo strings and celesta
+  - unanswered questions unresolved harmony
+night:
+  - starlit night ambience
+  - soft pads nylon guitar and distant chimes
+  - quiet nocturnal fantasy atmosphere
+reading:
+  - scholarly reading ambience
+  - felt piano soft lute candlelit library
+  - calm study atmosphere
+sad:
+  - sad grieving music
+  - solo violin lament felt piano and low cello
+  - open grief atmosphere
+secret_magic:
+  - secret magic and hidden arcana
+  - celesta harp harmonics and glassy shimmer
+  - mysterious spellcraft atmosphere
+sneaking:
+  - stealth sneaking music
+  - muted pizzicato low clarinet ticking percussion
+  - coiled quiet infiltration underscore
+spooky:
+  - playful spooky haunted-house music
+  - harpsichord theremin macabre waltz
+  - fun halloween atmosphere not genuine horror
+swamp:
+  - humid swamp murk ambience
+  - low woodwind drones bubbling textures
+  - marsh and bog atmosphere
+victory:
+  - victory fanfare music
+  - brass fanfare soaring strings and timpani
+  - hard-won triumph celebration

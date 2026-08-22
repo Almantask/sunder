@@ -1,0 +1,8 @@
+torch>=2.2.0,<2.6
+transformers>=4.40.0,<4.50
+numpy>=1.26.0,<2.3
+soundfile>=0.12.1
+miniaudio>=1.59
+PyYAML>=6.0.1
+tqdm>=4.66.0
+mutagen>=1.47.0
