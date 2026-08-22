@@ -183,13 +183,17 @@ def cache_stats(cache_dir: str) -> dict[str, Any]:
 def results_summary(results_path: str) -> dict[str, Any]:
     path = resolve_path(results_path)
     if not path.is_file():
-        return {"tracks": 0, "low": 0, "categories": 0, "exists": False}
+        return {"tracks": 0, "low": 0, "pending": 0, "reviewed": 0, "categories": 0, "exists": False}
     rows = read_results_csv(path)
     cats = {row.category for row in rows}
     low = sum(1 for row in rows if row.low_confidence)
+    pending = sum(1 for row in rows if row.review == "pending")
+    reviewed = sum(1 for row in rows if row.review in {"accepted", "rejected"})
     return {
         "tracks": len(rows),
         "low": low,
+        "pending": pending,
+        "reviewed": reviewed,
         "categories": len(cats),
         "exists": True,
     }

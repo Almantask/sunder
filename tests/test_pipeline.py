@@ -11,6 +11,7 @@ import numpy as np
 
 from sunder.classify import (
     Classification,
+    apply_human_overrides,
     classify_embeddings,
     read_results_csv,
     score_track,
@@ -147,6 +148,62 @@ class CacheAndClassifyTests(unittest.TestCase):
             loaded = read_results_csv(csv_path)
             self.assertEqual(len(loaded), 1)
             self.assertEqual(loaded[0].category, "rain")
+            self.assertEqual(loaded[0].review, "pending")
+            self.assertEqual(loaded[0].suggested_category, "rain")
+
+    def test_review_overrides_and_legacy_csv(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wav = Path(tmp) / "x.wav"
+            write_sine_wav(wav)
+            previous = Path(tmp) / "results.csv"
+            write_results_csv(
+                previous,
+                [
+                    Classification(
+                        path=wav,
+                        category="swamp",
+                        confidence=0.4,
+                        score=0.2,
+                        runner_up="rain",
+                        runner_up_score=0.1,
+                        margin=0.1,
+                        low_confidence=False,
+                        matched_prompt="rain",
+                        suggested_category="rain",
+                        review="accepted",
+                        comment="more bog than rain",
+                    )
+                ],
+            )
+            fresh = [
+                Classification(
+                    path=wav,
+                    category="rain",
+                    confidence=0.9,
+                    score=0.4,
+                    runner_up="drone",
+                    runner_up_score=0.1,
+                    margin=0.3,
+                    low_confidence=False,
+                    matched_prompt="rain",
+                    suggested_category="rain",
+                )
+            ]
+            apply_human_overrides(fresh, previous)
+            self.assertEqual(fresh[0].category, "swamp")
+            self.assertEqual(fresh[0].review, "accepted")
+            self.assertEqual(fresh[0].comment, "more bog than rain")
+            self.assertEqual(fresh[0].suggested_category, "rain")
+
+            legacy = Path(tmp) / "old.csv"
+            legacy.write_text(
+                "path,filename,category,confidence,score,runner_up,runner_up_score,margin,low_confidence,matched_prompt\n"
+                f"{wav},x.wav,rain,0.500000,0.200000,drone,0.100000,0.100000,false,rain\n",
+                encoding="utf-8",
+            )
+            loaded = read_results_csv(legacy)
+            self.assertEqual(loaded[0].review, "pending")
+            self.assertEqual(loaded[0].suggested_category, "rain")
 
 
 class OrganizeAndReportTests(unittest.TestCase):
@@ -174,6 +231,31 @@ class OrganizeAndReportTests(unittest.TestCase):
             self.assertEqual((copied, skipped, missing), (1, 0, 0))
             self.assertTrue((dest / "rain" / "track.wav").is_file())
             self.assertTrue(src.is_file())
+
+    def test_organize_skips_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "track.wav"
+            write_sine_wav(src)
+            dest = root / "out"
+            rows = [
+                Classification(
+                    path=src,
+                    category="rain",
+                    confidence=0.9,
+                    score=0.4,
+                    runner_up="ocean",
+                    runner_up_score=0.1,
+                    margin=0.3,
+                    low_confidence=False,
+                    matched_prompt="rain",
+                    review="rejected",
+                    comment="not this folder",
+                )
+            ]
+            copied, skipped, missing = organize_rows(rows, dest, mode="copy")
+            self.assertEqual((copied, skipped, missing), (0, 1, 0))
+            self.assertFalse((dest / "rain" / "track.wav").exists())
 
     def test_copy_stops_when_cancelled(self) -> None:
         from sunder.progress import Cancelled

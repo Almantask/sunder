@@ -16,7 +16,13 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 import yaml
 
 from sunder import __version__
-from sunder.classify import read_results_csv
+from sunder.classify import (
+    normalize_review,
+    path_key,
+    read_results_csv,
+    sanitize_category,
+    write_results_csv,
+)
 from sunder.config import CategoryConfigError, load_categories, normalize_categories
 import sunder.desktop.jobs as jobmod
 from sunder.desktop.media import decode_media_path, is_allowed_media, send_audio
@@ -121,6 +127,9 @@ def _row_payload(row) -> dict[str, Any]:
         "margin": row.margin,
         "low_confidence": row.low_confidence,
         "matched_prompt": row.matched_prompt,
+        "suggested_category": row.suggested_category or row.category,
+        "review": row.review,
+        "comment": row.comment or "",
         "media": "/media?p=" + quote(path, safe=""),
     }
 
@@ -261,6 +270,10 @@ def handle_results(_handler, query: dict[str, list[str]], _body) -> tuple[Any, i
             "rows": [],
             "total": 0,
             "low": 0,
+            "pending": 0,
+            "reviewed": 0,
+            "accepted": 0,
+            "rejected": 0,
             "offset": 0,
             "limit": 80,
             "categories": [],
@@ -270,27 +283,42 @@ def handle_results(_handler, query: dict[str, list[str]], _body) -> tuple[Any, i
     q = (query.get("q") or [""])[0].strip().lower()
     category = (query.get("category") or [""])[0].strip()
     low_only = (query.get("low") or [""])[0] in {"1", "true", "yes"}
+    review_filter = (query.get("review") or [""])[0].strip().lower()
     try:
         offset = max(0, int((query.get("offset") or ["0"])[0]))
         limit = min(200, max(1, int((query.get("limit") or ["80"])[0])))
     except ValueError:
         offset, limit = 0, 80
 
+    pending = sum(1 for row in rows if row.review == "pending")
+    accepted = sum(1 for row in rows if row.review == "accepted")
+    rejected = sum(1 for row in rows if row.review == "rejected")
+    reviewed = accepted + rejected
+    low = sum(1 for row in rows if row.low_confidence)
+
+    def in_queue(row) -> bool:
+        if review_filter in {"", "all"}:
+            return True
+        if review_filter == "reviewed":
+            return row.review in {"accepted", "rejected"}
+        if review_filter in {"pending", "accepted", "rejected"}:
+            return row.review == review_filter
+        return True
+
     counts: dict[str, int] = {}
     filtered = []
-    low = 0
     for row in rows:
-        counts[row.category] = counts.get(row.category, 0) + 1
-        if row.low_confidence:
-            low += 1
-        if category and row.category != category:
+        if not in_queue(row):
             continue
         if low_only and not row.low_confidence:
             continue
         if q:
-            hay = f"{row.path.name} {row.category} {row.runner_up} {row.matched_prompt}".lower()
+            hay = f"{row.path.name} {row.category} {row.runner_up} {row.matched_prompt} {row.comment}".lower()
             if q not in hay:
                 continue
+        counts[row.category] = counts.get(row.category, 0) + 1
+        if category and row.category != category:
+            continue
         filtered.append(row)
     page = filtered[offset : offset + limit]
     categories = [
@@ -301,12 +329,44 @@ def handle_results(_handler, query: dict[str, list[str]], _body) -> tuple[Any, i
         "rows": [_row_payload(row) for row in page],
         "total": len(filtered),
         "all": len(rows),
+        "queue": sum(counts.values()),
         "low": low,
+        "pending": pending,
+        "reviewed": reviewed,
+        "accepted": accepted,
+        "rejected": rejected,
         "offset": offset,
         "limit": limit,
         "categories": categories,
         "exists": True,
     }, 200
+
+
+def handle_review(_handler, _query, body: dict[str, Any]) -> tuple[Any, int]:
+    if jobmod.JOBS.busy():
+        raise RuntimeError("Wait for the current job to finish.")
+    target = str(body.get("path") or "").strip()
+    if not target:
+        raise ValueError("path is required")
+    settings = load_settings()
+    csv_path = resolve_path(settings["results"])
+    if not csv_path.is_file():
+        raise RuntimeError("Classify a library first.")
+    rows = read_results_csv(csv_path)
+    key = path_key(target)
+    found = next((row for row in rows if path_key(row.path) == key), None)
+    if found is None:
+        raise FileNotFoundError("Track is not in results.csv")
+    if "comment" in body and body["comment"] is not None:
+        found.comment = str(body["comment"])
+    if "category" in body and body["category"] is not None:
+        found.category = sanitize_category(str(body["category"]))
+    if "review" in body and body["review"] is not None:
+        found.review = normalize_review(str(body["review"]))
+        if found.review == "accepted":
+            found.category = sanitize_category(found.category)
+    write_results_csv(csv_path, rows)
+    return {"ok": True, "row": _row_payload(found)}, 200
 
 
 def handle_open_report(_handler, _query, _body) -> tuple[Any, int]:
@@ -387,6 +447,7 @@ ROUTES = {
     ("GET", "/api/device"): handle_device,
     ("GET", "/api/categories"): handle_categories_get,
     ("GET", "/api/results"): handle_results,
+    ("POST", "/api/results/review"): handle_review,
     ("POST", "/api/settings"): handle_settings_save,
     ("POST", "/api/scan"): handle_scan,
     ("POST", "/api/embed"): handle_embed,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,9 @@ from sunder.progress import check_cancel, emit as emit_progress
 
 DEFAULT_THRESHOLD = 0.35
 DEFAULT_MIN_MARGIN = 0.02
+REVIEW_PENDING = "pending"
+REVIEW_ACCEPTED = "accepted"
+REVIEW_REJECTED = "rejected"
 CSV_FIELDS = [
     "path",
     "filename",
@@ -25,7 +29,67 @@ CSV_FIELDS = [
     "margin",
     "low_confidence",
     "matched_prompt",
+    "suggested_category",
+    "review",
+    "comment",
 ]
+
+
+def path_key(path: str | Path) -> str:
+    raw = str(path)
+    try:
+        raw = str(Path(path).resolve())
+    except OSError:
+        pass
+    return os.path.normcase(os.path.normpath(raw))
+
+
+def normalize_review(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    if raw in {"accepted", "accept", "ok", "yes"}:
+        return REVIEW_ACCEPTED
+    if raw in {"rejected", "reject", "no"}:
+        return REVIEW_REJECTED
+    return REVIEW_PENDING
+
+
+def sanitize_category(name: str) -> str:
+    cleaned = " ".join((name or "").split())
+    if not cleaned:
+        raise ValueError("Category is required.")
+    if any(char in cleaned for char in '<>:"/\\|?*'):
+        raise ValueError("Category contains invalid characters.")
+    return cleaned[:80]
+
+
+def apply_human_overrides(
+    rows: list[Classification],
+    previous_csv: str | Path | None,
+) -> list[Classification]:
+    """Keep accept/reject, comments, and custom categories across re-classify."""
+    for row in rows:
+        if not row.suggested_category:
+            row.suggested_category = row.category
+        row.review = normalize_review(row.review)
+    if not previous_csv:
+        return rows
+    prev_path = Path(previous_csv)
+    if not prev_path.is_file():
+        return rows
+    try:
+        previous = {path_key(old.path): old for old in read_results_csv(prev_path)}
+    except (OSError, ValueError, KeyError):
+        return rows
+    for row in rows:
+        old = previous.get(path_key(row.path))
+        if not old:
+            continue
+        row.comment = old.comment or ""
+        status = normalize_review(old.review)
+        if status in {REVIEW_ACCEPTED, REVIEW_REJECTED}:
+            row.review = status
+            row.category = old.category
+    return rows
 
 
 @dataclass
@@ -39,6 +103,16 @@ class Classification:
     margin: float
     low_confidence: bool
     matched_prompt: str
+    suggested_category: str = ""
+    review: str = REVIEW_PENDING
+    comment: str = ""
+
+    def __post_init__(self) -> None:
+        self.path = Path(self.path)
+        if not self.suggested_category:
+            self.suggested_category = self.category
+        self.review = normalize_review(self.review)
+        self.comment = self.comment or ""
 
 
 def softmax(logits: np.ndarray) -> np.ndarray:
@@ -151,6 +225,9 @@ def write_results_csv(path: str | Path, rows: list[Classification]) -> None:
                     "margin": f"{row.margin:.6f}",
                     "low_confidence": "true" if row.low_confidence else "false",
                     "matched_prompt": row.matched_prompt,
+                    "suggested_category": row.suggested_category or row.category,
+                    "review": normalize_review(row.review),
+                    "comment": row.comment or "",
                 }
             )
 
@@ -174,6 +251,9 @@ def read_results_csv(path: str | Path) -> list[Classification]:
                     margin=float(raw["margin"]),
                     low_confidence=raw.get("low_confidence", "").lower() in {"true", "1", "yes"},
                     matched_prompt=raw.get("matched_prompt", ""),
+                    suggested_category=raw.get("suggested_category", "") or raw["category"],
+                    review=raw.get("review", ""),
+                    comment=raw.get("comment", ""),
                 )
             )
     return rows
@@ -226,6 +306,9 @@ def classify_cache(
         threshold=threshold,
         min_margin=min_margin,
     )
+    for row in rows:
+        row.suggested_category = row.category
+    apply_human_overrides(rows, out_csv)
     if not write_csv and not write_tags:
         raise ValueError("Nothing to write: pass --save-file and/or --embed-track")
     if write_csv:

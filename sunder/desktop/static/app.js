@@ -13,12 +13,16 @@
     category: "",
     lastLog: 0,
     playing: null,
+    selectedPath: "",
+    selectedRow: null,
+    categoryNames: [],
+    reviewQueue: "pending",
   };
 
   const copy = {
     library: ["Library", "Choose a folder of tracks, then embed, scan, report, or run a full analysis."],
     categories: ["Categories", "Edit prompt wording freely. Re-classify after saving — no need to re-embed."],
-    review: ["Review", "Listen, filter, and spot-check low-confidence assignments before you organize."],
+    review: ["Review", "Work through the queue. Accepted and rejected tracks are hidden unless you open Reviewed."],
     settings: ["Settings", "Tune scanning, classification, and how files are copied into category folders."],
   };
 
@@ -116,7 +120,10 @@
     const [title, lede] = copy[name] || copy.library;
     $("view-title").textContent = title;
     $("view-lede").textContent = lede;
-    if (name === "review") loadResults();
+    if (name === "review") {
+      loadCategoryList();
+      loadResults();
+    }
     if (name === "categories") loadCategories();
   }
 
@@ -124,7 +131,7 @@
     $("stat-found").textContent = scan && scan.count != null ? scan.count : "—";
     $("stat-cache").textContent = boot.cache?.tracks ?? "—";
     $("stat-classified").textContent = boot.results?.exists ? boot.results.tracks : "—";
-    $("stat-low").textContent = boot.results?.exists ? boot.results.low : "—";
+    $("stat-low").textContent = boot.results?.exists ? boot.results.pending ?? boot.results.low : "—";
   }
 
   function fmtTime(sec) {
@@ -140,7 +147,7 @@
     const busy = Boolean(job && job.status === "running");
     document.body.classList.toggle("is-busy", busy);
     $("btn-cancel").disabled = !busy;
-    ["btn-embed", "btn-pipeline", "btn-classify", "btn-report", "btn-tag", "btn-organize", "btn-scan"].forEach((id) => {
+    ["btn-embed", "btn-pipeline", "btn-report", "btn-organize", "btn-scan"].forEach((id) => {
       $(id).disabled = busy;
     });
     const pill = $("job-pill");
@@ -248,22 +255,146 @@
     return Math.round(n * 100) + "%";
   }
 
+  function decisionLabel(review) {
+    if (review === "accepted") return "Accepted";
+    if (review === "rejected") return "Rejected";
+    return "Pending";
+  }
+
+  function fillCategoryList(fromRows) {
+    const names = new Set(state.categoryNames);
+    (fromRows || []).forEach((row) => {
+      if (row.category) names.add(row.category);
+      if (row.suggested_category) names.add(row.suggested_category);
+    });
+    const list = $("review-cat-list");
+    list.innerHTML = "";
+    Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        list.appendChild(opt);
+      });
+  }
+
+  async function loadCategoryList() {
+    try {
+      const data = await api("/api/categories");
+      state.categoryNames = data.names || [];
+      fillCategoryList();
+    } catch {
+      state.categoryNames = [];
+    }
+  }
+
+  function setReviewEnabled(on) {
+    $("review-category").disabled = !on;
+    $("review-comment").disabled = !on;
+    $("review-accept").disabled = !on;
+    $("review-reject").disabled = !on;
+  }
+
+  function showReview(row) {
+    if (!row) {
+      state.selectedPath = "";
+      $("review-filename").textContent = "Select a track";
+      $("review-suggested").textContent =
+        "Click a row, listen, then accept the suggestion, reject it, or type your own category.";
+      $("review-category").value = "";
+      $("review-comment").value = "";
+      setReviewEnabled(false);
+      return;
+    }
+    state.selectedPath = row.path;
+    state.selectedRow = row;
+    $("review-filename").textContent = row.filename;
+    const suggested = row.suggested_category || row.category;
+    $("review-suggested").textContent =
+      "Suggested: " +
+      suggested +
+      " · " +
+      confLabel(row.confidence) +
+      (row.runner_up ? " · runner-up " + row.runner_up : "") +
+      (row.review === "accepted" && row.category !== suggested ? " · you chose " + row.category : "");
+    $("review-category").value = row.category || "";
+    $("review-comment").value = row.comment || "";
+    setReviewEnabled(true);
+  }
+
+  function emptyQueueMessage(data) {
+    if (state.reviewQueue === "pending" && !data.pending) {
+      return "Queue is clear. Open Reviewed to see accepted and rejected tracks.";
+    }
+    return "No tracks match this filter.";
+  }
+
+  function syncQueueChips(data) {
+    const labels = {
+      pending: "To review (" + (data.pending || 0) + ")",
+      reviewed: "Reviewed (" + (data.reviewed || 0) + ")",
+      all: "All (" + (data.all || 0) + ")",
+    };
+    document.querySelectorAll("#queue-chips .chip").forEach((btn) => {
+      const key = btn.dataset.queue;
+      btn.classList.toggle("is-on", state.reviewQueue === key);
+      if (labels[key]) btn.textContent = labels[key];
+    });
+  }
+
+  async function saveReview(review) {
+    if (!state.selectedPath) return;
+    const category = $("review-category").value.trim();
+    if (review === "accepted" && !category) {
+      toast("Type or pick a category to accept.", true);
+      return;
+    }
+    const path = state.selectedPath;
+    const decided = review === "accepted" || review === "rejected";
+    let nextPath = path;
+    if (decided) {
+      const paths = Array.from(document.querySelectorAll("#track-body tr[data-path]")).map((tr) => tr.dataset.path);
+      const idx = paths.indexOf(path);
+      nextPath = paths[idx + 1] || paths[idx - 1] || "";
+    }
+    try {
+      await api("/api/results/review", {
+        method: "POST",
+        body: JSON.stringify({
+          path,
+          review,
+          category: category || undefined,
+          comment: $("review-comment").value,
+        }),
+      });
+      if (decided) state.selectedPath = nextPath;
+      toast(review === "rejected" ? "Rejected." : review === "accepted" ? "Accepted." : "Comment saved.");
+      await loadResults();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
   async function loadResults() {
     const params = new URLSearchParams({
       q: $("search").value.trim(),
       category: state.category,
       low: $("low-only").checked ? "1" : "0",
+      review: state.reviewQueue,
       offset: String(state.offset),
       limit: String(state.limit),
     });
     try {
       const data = await api("/api/results?" + params.toString());
+      fillCategoryList(data.rows || []);
+      syncQueueChips(data);
+      if (data.pending != null) $("stat-low").textContent = data.pending;
       const chips = $("cat-chips");
       chips.innerHTML = "";
       const all = document.createElement("button");
       all.className = "chip" + (state.category === "" ? " is-on" : "");
       all.type = "button";
-      all.textContent = "All" + (data.all != null ? " (" + data.all + ")" : "");
+      all.textContent = "All" + (data.queue != null ? " (" + data.queue + ")" : data.all != null ? " (" + data.all + ")" : "");
       all.addEventListener("click", () => {
         state.category = "";
         state.offset = 0;
@@ -288,12 +419,23 @@
       if (!data.rows || !data.rows.length) {
         const tr = document.createElement("tr");
         tr.className = "empty-row";
-        tr.innerHTML = "<td colspan='5'>" + (data.exists ? "No tracks match this filter." : "Classify a library to see results here.") + "</td>";
+        tr.innerHTML = "<td colspan='6'>" + (data.exists ? emptyQueueMessage(data) : "Classify a library to see results here.") + "</td>";
         body.appendChild(tr);
+        showReview(null);
       } else {
+        let restored = null;
         data.rows.forEach((row) => {
           const tr = document.createElement("tr");
-          if (row.low_confidence) tr.className = "low";
+          const classes = [];
+          if (row.low_confidence) classes.push("low");
+          if (row.review === "accepted") classes.push("accepted");
+          if (row.review === "rejected") classes.push("rejected");
+          if (state.selectedPath === row.path) {
+            classes.push("is-sel");
+            restored = row;
+          }
+          tr.className = classes.join(" ");
+          tr.dataset.path = row.path;
           const pct = Math.max(0, Math.min(100, Math.round(row.confidence * 100)));
           tr.innerHTML =
             "<td><button class='play-mini' type='button' aria-label='Play'>▶</button></td>" +
@@ -301,11 +443,15 @@
             "<td></td>" +
             "<td><span class='meter" + (row.low_confidence ? " is-low" : "") + "'><i style='width:" + pct + "%'></i></span>" +
             confLabel(row.confidence) + "</td>" +
+            "<td><span class='badge'></span></td>" +
             "<td></td>";
           tr.children[1].querySelector(".filename").textContent = row.filename;
           tr.children[1].querySelector(".prompt").textContent = row.matched_prompt || "";
           tr.children[2].textContent = row.category;
-          tr.children[4].textContent = row.runner_up + " · " + row.runner_up_score.toFixed(3);
+          const badge = tr.querySelector(".badge");
+          badge.textContent = decisionLabel(row.review);
+          badge.classList.add("badge-" + (row.review || "pending"));
+          tr.children[5].textContent = row.runner_up + " · " + row.runner_up_score.toFixed(3);
           tr.querySelector(".play-mini").addEventListener("click", (ev) => {
             ev.stopPropagation();
             playRow(row);
@@ -314,6 +460,7 @@
           tr.addEventListener("click", () => {
             body.querySelectorAll("tr").forEach((n) => n.classList.remove("is-sel"));
             tr.classList.add("is-sel");
+            showReview(row);
           });
           tr.addEventListener("contextmenu", (ev) => {
             ev.preventDefault();
@@ -321,6 +468,14 @@
           });
           body.appendChild(tr);
         });
+        if (restored) showReview(restored);
+        else {
+          const first = data.rows[0];
+          const firstRow = body.querySelector("tr[data-path]");
+          if (firstRow) firstRow.classList.add("is-sel");
+          showReview(first || null);
+        }
+        syncPlayButton();
       }
       const start = data.total ? data.offset + 1 : 0;
       const end = Math.min(data.offset + data.limit, data.total);
@@ -333,27 +488,52 @@
     }
   }
 
+  function isAudioPlaying() {
+    return Boolean(audio.src) && !audio.paused && !audio.ended;
+  }
+
+  function syncPlayButton() {
+    const on = isAudioPlaying();
+    const btn = $("play-btn");
+    btn.classList.toggle("is-on", on);
+    btn.setAttribute("aria-label", on ? "Pause" : "Play");
+    const playingPath = on && state.playing ? state.playing.path : "";
+    document.querySelectorAll(".play-mini").forEach((mini) => {
+      const rowOn = mini.closest("tr") && mini.closest("tr").dataset.path === playingPath;
+      mini.classList.toggle("is-on", rowOn);
+      mini.setAttribute("aria-label", rowOn ? "Pause" : "Play");
+      mini.textContent = rowOn ? "❚❚" : "▶";
+    });
+  }
+
   function playRow(row) {
+    if (state.playing && state.playing.path === row.path && audio.src && !audio.paused) {
+      audio.pause();
+      syncPlayButton();
+      return;
+    }
     state.playing = row;
     audio.src = row.media;
-    audio.play().catch((err) => toast(err.message || "Playback blocked", true));
     $("now-title").textContent = row.filename;
     $("now-meta").textContent = row.category + " · " + confLabel(row.confidence);
-    $("play-btn").classList.add("is-on");
-    $("play-btn").setAttribute("aria-label", "Pause");
+    audio.play().catch((err) => {
+      syncPlayButton();
+      toast(err.message || "Playback blocked", true);
+    });
+    syncPlayButton();
   }
 
   function togglePlay() {
     if (!audio.src) return;
     if (audio.paused) {
-      audio.play();
-      $("play-btn").classList.add("is-on");
-      $("play-btn").setAttribute("aria-label", "Pause");
+      audio.play().catch((err) => {
+        syncPlayButton();
+        toast(err.message || "Playback blocked", true);
+      });
     } else {
       audio.pause();
-      $("play-btn").classList.remove("is-on");
-      $("play-btn").setAttribute("aria-label", "Play");
     }
+    syncPlayButton();
   }
 
   async function refreshBootstrap(scan) {
@@ -415,9 +595,7 @@
     });
     $("btn-embed").addEventListener("click", () => run("/api/embed"));
     $("btn-pipeline").addEventListener("click", () => run("/api/pipeline"));
-    $("btn-classify").addEventListener("click", () => run("/api/classify"));
     $("btn-report").addEventListener("click", () => run("/api/report"));
-    $("btn-tag").addEventListener("click", () => run("/api/tag"));
     $("btn-cancel").addEventListener("click", () => api("/api/job/cancel", { method: "POST", body: "{}" }));
     $("btn-save-cats").addEventListener("click", async () => {
       try {
@@ -449,6 +627,21 @@
       state.offset = 0;
       loadResults();
     });
+    document.querySelectorAll("#queue-chips .chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.reviewQueue = btn.dataset.queue;
+        state.offset = 0;
+        loadResults();
+      });
+    });
+    $("review-accept").addEventListener("click", () => saveReview("accepted"));
+    $("review-reject").addEventListener("click", () => saveReview("rejected"));
+    $("review-comment").addEventListener(
+      "change",
+      () => {
+        if (state.selectedPath) saveReview(state.selectedRow && state.selectedRow.review);
+      }
+    );
     $("page-prev").addEventListener("click", () => {
       state.offset = Math.max(0, state.offset - state.limit);
       loadResults();
@@ -508,12 +701,9 @@
       $("t-dur").textContent = fmtTime(audio.duration);
       if (audio.duration) $("seek").value = String(Math.round((audio.currentTime / audio.duration) * 1000));
     });
-    audio.addEventListener("ended", () => {
-      $("play-btn").classList.remove("is-on");
-      $("play-btn").setAttribute("aria-label", "Play");
+    ["play", "playing", "pause", "ended", "emptied", "error"].forEach((ev) => {
+      audio.addEventListener(ev, syncPlayButton);
     });
-    audio.addEventListener("play", () => $("play-btn").classList.add("is-on"));
-    audio.addEventListener("pause", () => $("play-btn").classList.remove("is-on"));
 
     document.addEventListener("keydown", (ev) => {
       const tag = ev.target && ev.target.tagName;
@@ -526,6 +716,16 @@
         ev.preventDefault();
         setView("review");
         $("search").focus();
+      }
+      if (state.view === "review" && state.selectedPath) {
+        if (ev.key === "a" || ev.key === "A") {
+          ev.preventDefault();
+          saveReview("accepted");
+        }
+        if (ev.key === "r" || ev.key === "R") {
+          ev.preventDefault();
+          saveReview("rejected");
+        }
       }
     });
   }

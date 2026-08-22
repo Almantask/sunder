@@ -134,11 +134,12 @@ class DesktopHttpTests(unittest.TestCase):
         with urlopen(req, timeout=5) as resp:
             html = resp.read().decode("utf-8")
             self.assertIn("Sunder", html)
+            self.assertIn("/styles.css", html)
             self.assertIn("Full analysis", html)
             self.assertIn("data-view=\"settings\"", html)
             self.assertIn("data-tip=", html)
-            self.assertNotIn("data-view=\"classify\"", html)
-            self.assertNotIn("data-view=\"organize\"", html)
+            self.assertIn("data-queue=\"pending\"", html)
+            self.assertIn("To review", html)
         status, payload, _ = self._json("/api/bootstrap")
         self.assertEqual(status, 200)
         self.assertIn("settings", payload)
@@ -151,6 +152,93 @@ class DesktopHttpTests(unittest.TestCase):
             self.assertEqual(resp.status, 200)
             self.assertEqual(data[:4], b"\x00\x00\x01\x00")
             self.assertGreater(len(data), 64)
+
+    def test_review_accept_custom_category(self) -> None:
+        from sunder.classify import Classification, read_results_csv, write_results_csv
+
+        wav = Path("tone.wav")
+        write_sine_wav(wav)
+        write_results_csv(
+            Path("results.csv"),
+            [
+                Classification(
+                    path=wav,
+                    category="forest",
+                    confidence=0.4,
+                    score=0.2,
+                    runner_up="camp",
+                    runner_up_score=0.1,
+                    margin=0.1,
+                    low_confidence=True,
+                    matched_prompt="green woodland",
+                )
+            ],
+        )
+        save_settings({"results": "results.csv"})
+        status, payload, _ = self._json(
+            "/api/results/review",
+            "POST",
+            {
+                "path": str(wav.resolve()),
+                "review": "accepted",
+                "category": "swamp",
+                "comment": "more like bog",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["row"]["category"], "swamp")
+        self.assertEqual(payload["row"]["review"], "accepted")
+        self.assertEqual(payload["row"]["comment"], "more like bog")
+        loaded = read_results_csv(Path("results.csv"))
+        self.assertEqual(loaded[0].category, "swamp")
+        self.assertEqual(loaded[0].suggested_category, "forest")
+        self.assertEqual(loaded[0].review, "accepted")
+
+    def test_review_queue_filters(self) -> None:
+        from sunder.classify import Classification, write_results_csv
+
+        pending = Path("keep.wav")
+        done = Path("done.wav")
+        write_sine_wav(pending)
+        write_sine_wav(done)
+        write_results_csv(
+            Path("results.csv"),
+            [
+                Classification(
+                    path=pending,
+                    category="forest",
+                    confidence=0.5,
+                    score=0.2,
+                    runner_up="camp",
+                    runner_up_score=0.1,
+                    margin=0.1,
+                    low_confidence=False,
+                    matched_prompt="trees",
+                ),
+                Classification(
+                    path=done,
+                    category="boss",
+                    confidence=0.8,
+                    score=0.4,
+                    runner_up="camp",
+                    runner_up_score=0.1,
+                    margin=0.3,
+                    low_confidence=False,
+                    matched_prompt="fight",
+                    review="accepted",
+                ),
+            ],
+        )
+        save_settings({"results": "results.csv"})
+        status, payload, _ = self._json("/api/results?review=pending")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["pending"], 1)
+        self.assertEqual(payload["reviewed"], 1)
+        names = {row["filename"] for row in payload["rows"]}
+        self.assertEqual(names, {"keep.wav"})
+        status, payload, _ = self._json("/api/results?review=reviewed")
+        names = {row["filename"] for row in payload["rows"]}
+        self.assertEqual(names, {"done.wav"})
 
     def test_move_requires_confirm(self) -> None:
         status, payload, _ = self._json(

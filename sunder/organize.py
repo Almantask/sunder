@@ -76,6 +76,10 @@ def organize_rows(
             missing += 1
             print(f"MISSING {source}", flush=True)
             continue
+        if row.review == "rejected":
+            skipped += 1
+            print(f"SKIP rejected {source.name}", flush=True)
+            continue
         folder = dest_root / safe_folder_name(row.category)
         folder.mkdir(parents=True, exist_ok=True)
         dest = unique_dest(folder, source.name)

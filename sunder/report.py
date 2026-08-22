@@ -109,6 +109,8 @@ def render_report(
       color: var(--warn);
       font-size: 0.75rem;
     }}
+    .ok-flag {{ background: #163226; color: var(--ok); }}
+    .no-flag {{ background: #3a1d1c; color: #e07a72; }}
     .ok {{ color: var(--ok); }}
     .warn {{ color: var(--warn); }}
     table {{ border-collapse: collapse; width: 100%; }}
@@ -189,7 +191,15 @@ def _tracks_section(
     for row in rows:
         src = _src_for(row.path, report_path)
         flag = '<span class="flag">low confidence</span>' if row.low_confidence or flag_all else ""
-        search = html.escape(f"{row.path.name} {row.category} {row.runner_up} {row.matched_prompt}", quote=True)
+        if row.review == "accepted":
+            flag += '<span class="flag ok-flag">accepted</span>'
+        elif row.review == "rejected":
+            flag += '<span class="flag no-flag">rejected</span>'
+        note = f'<div class="meta">Comment: {html.escape(row.comment)}</div>' if row.comment else ""
+        search = html.escape(
+            f"{row.path.name} {row.category} {row.runner_up} {row.matched_prompt} {row.comment} {row.review}",
+            quote=True,
+        )
         cards.append(
             f"""
       <div class="track" data-search="{search}">
@@ -198,6 +208,7 @@ def _tracks_section(
           <div class="meta">{html.escape(row.category)} · {row.confidence:.0%} confidence ·
             cosine {row.score:.3f} · runner-up {html.escape(row.runner_up)} ({row.runner_up_score:.3f})
             · “{html.escape(row.matched_prompt)}”</div>
+          {note}
           <div class="meta">{html.escape(str(row.path))}</div>
         </div>
         <audio controls preload="none" src="{html.escape(src, quote=True)}"></audio>

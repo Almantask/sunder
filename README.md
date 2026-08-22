@@ -2,6 +2,8 @@
 
 Local CLI that sorts a large library of AI-generated ambience tracks into **your** categories using zero-shot [CLAP](https://huggingface.co/laion/larger_clap_music) (audio–text matching). No training and no cloud API: embeddings are computed once, cached on disk, then classification is cheap to re-run when you tweak category wording.
 
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## Setup (Windows)
 
 From the repo root (Python 3.9+; this repo’s venv was created with `py -3.9`):
@@ -45,8 +47,8 @@ Use `--browser` if you want the UI in your default browser instead (also the fal
 | Control | Same as |
 |---|---|
 | Library · Embed / Scan / Report / Full analysis | `sunder embed`, scan, `sunder report`, or embed → classify → report |
-| Review player | playback in-app; open `report.html` |
-| Settings · Classify / Organize | `sunder classify --save-file` / `--embed-track`, and `sunder organize` (copy by default; move asks you to type `MOVE`) |
+| Review | accept / reject / custom category + comment (`A` / `R`); in-app player; open `report.html` |
+| Settings · Organize | `sunder organize` (copy by default; move asks you to type `MOVE`). Stamp tags with the Settings checkbox; Full analysis classifies. |
 
 Jobs run on a background thread so the window stays responsive. Cancel writes any embeddings already finished.
 
@@ -118,7 +120,9 @@ Pass one or both flags (`--save-file` writes `results.csv`; `--embed-track` stam
 .\.venv\Scripts\python -m sunder report
 ```
 
-Opens nothing automatically — open `report.html` in a browser. Tracks are grouped by category, with inline players and a **Needs review** section for low-confidence files.
+In the desktop app, open **Review** to work the queue: listen, accept the suggestion, type your own category, or reject. Accepted and rejected tracks stay out of **To review** until you open **Reviewed**. Re-classify keeps those decisions.
+
+`sunder report` writes `report.html` (it does not open a browser). Tracks are grouped by category, with inline players, review flags, and a **Needs review** section for low-confidence files.
 
 ## 5. Organize files
 

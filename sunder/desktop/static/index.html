@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sunder</title>
+  <link rel="stylesheet" href="/styles.css">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" href="/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/logo.svg">
@@ -55,7 +56,7 @@
               <article><span>Found</span><strong id="stat-found">—</strong></article>
               <article><span>In cache</span><strong id="stat-cache">—</strong></article>
               <article><span>Classified</span><strong id="stat-classified">—</strong></article>
-              <article><span>Needs review</span><strong id="stat-low">—</strong></article>
+              <article><span>To review</span><strong id="stat-low">—</strong></article>
             </div>
 
             <div class="card hero">
@@ -92,10 +93,15 @@
             </div>
           </section>
 
-          <section class="view" id="view-review" hidden data-title="Review" data-lede="Listen, filter, and spot-check low-confidence assignments before you organize.">
+          <section class="view" id="view-review" hidden data-title="Review" data-lede="Work through the queue. Accepted and rejected tracks are hidden unless you open Reviewed.">
             <div class="review-bar">
-              <input id="search" type="search" placeholder="Filter by filename, category, prompt">
-              <label class="check"><input id="low-only" type="checkbox"> Needs review</label>
+              <input id="search" type="search" placeholder="Filter by filename, category, prompt, comment">
+              <div class="queue-chips" id="queue-chips" role="group" aria-label="Review queue">
+                <button type="button" class="chip is-on" data-queue="pending">To review</button>
+                <button type="button" class="chip" data-queue="reviewed">Reviewed</button>
+                <button type="button" class="chip" data-queue="all">All</button>
+              </div>
+              <label class="check"><input id="low-only" type="checkbox"> Low confidence</label>
               <button class="btn ghost" id="btn-open-report" type="button">Open HTML report</button>
             </div>
             <div class="chips" id="cat-chips"></div>
@@ -107,13 +113,34 @@
                     <th>Track</th>
                     <th>Category</th>
                     <th>Confidence</th>
+                    <th>Decision</th>
                     <th>Runner-up</th>
                   </tr>
                 </thead>
                 <tbody id="track-body">
-                  <tr class="empty-row"><td colspan="5">Classify a library to see results here.</td></tr>
+                  <tr class="empty-row"><td colspan="6">Classify a library to see results here.</td></tr>
                 </tbody>
               </table>
+            </div>
+            <div class="card review-pane" id="review-pane">
+              <div class="review-pane-copy">
+                <p class="eyebrow">Decision</p>
+                <h2 id="review-filename">Select a track</h2>
+                <p class="hint" id="review-suggested">Click a row, listen, then accept the suggestion, reject it, or type your own category.</p>
+              </div>
+              <div class="review-fields">
+                <label>Category
+                  <input id="review-category" list="review-cat-list" spellcheck="false" placeholder="forest, boss, or your own" disabled>
+                  <datalist id="review-cat-list"></datalist>
+                </label>
+                <label>Comment
+                  <textarea id="review-comment" rows="3" placeholder="Why you changed it, mood notes, skip reasons…" disabled></textarea>
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn danger ghost" id="review-reject" type="button" disabled>Reject</button>
+                <button class="btn gold" id="review-accept" type="button" disabled>Accept</button>
+              </div>
             </div>
             <div class="pager">
               <button class="btn ghost" id="page-prev" type="button">Previous</button>
@@ -128,7 +155,7 @@
                 <div>
                   <p class="eyebrow">Preferences</p>
                   <h2>Scan, classify, organize</h2>
-                  <p>These apply to Library actions and to the jobs below. Re-classify after editing categories — no need to re-embed.</p>
+                  <p>These apply to Library and Organize actions. Re-classify after editing categories — no need to re-embed.</p>
                 </div>
                 <button class="btn gold" id="btn-save-settings" type="button">Save settings</button>
               </div>
@@ -177,15 +204,12 @@
                     <label>Report HTML<input id="report" type="text" spellcheck="false" value="report.html"></label>
                     <label>Categories YAML<input id="categories-path" type="text" spellcheck="false" value="categories.yaml"></label>
                   </div>
-                  <div class="actions">
-                    <button class="btn gold" id="btn-classify" type="button">Classify</button>
-                    <button class="btn ghost" id="btn-tag" type="button">Tag files from CSV</button>
-                  </div>
                 </div>
 
                 <div class="card">
                   <p class="eyebrow">Organize</p>
                   <h2>Per-category folders</h2>
+                  <p>Rejected Review tracks are skipped. Accepted tracks use the category you confirmed.</p>
                   <div class="path-row">
                     <input id="organize-dest" type="text" spellcheck="false" placeholder="organized" aria-label="Organize destination">
                     <button class="btn ghost" id="browse-dest" type="button">Browse</button>
