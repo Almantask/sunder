@@ -4,6 +4,44 @@ Local CLI that sorts a large library of AI-generated ambience tracks into **your
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
+## How it works
+
+```mermaid
+flowchart TD
+    subgraph INPUTS
+        A["🎵 Audio library<br/>.mp3 .wav .flac .ogg"]
+        B["📝 categories.yaml<br/>category → prompt phrases"]
+    end
+
+    A -->|"scan & load<br/>3 × 10 s windows"| C["🔊 CLAP audio encoder"]
+    C -->|"one vector per track"| D[("💾 .sunder_cache<br/>keyed by path + size + mtime")]
+
+    B -->|"flatten prompts"| E["📖 CLAP text encoder"]
+    E -->|"one vector per prompt"| F["Text embeddings"]
+
+    D -->|"cached audio embeddings"| G{"Cosine similarity<br/>+ softmax scoring"}
+    F --> G
+
+    G -->|"best category,<br/>confidence, margin"| H["Classification results"]
+
+    H -->|"--save-file"| I["📊 results.csv"]
+    H -->|"--embed-track"| J["🏷️ Audio tags<br/>ID3 / Vorbis"]
+    I -->|"report"| K["📋 report.html<br/>inline players + review flags"]
+    I -->|"organize"| L["📁 organized/<br/>copy or move into<br/>category folders"]
+
+    B -.->|"tweak wording<br/>& re-run classify<br/>(no re-embed)"| E
+
+    style A fill:#1e3a5f,color:#e8ecf4
+    style B fill:#3a2a10,color:#f0b429
+    style D fill:#163226,color:#3ecf8e
+    style G fill:#2c1f3d,color:#c4a5e0
+    style I fill:#1b1f29,color:#e8ecf4
+    style K fill:#1b1f29,color:#e8ecf4
+    style L fill:#1b1f29,color:#e8ecf4
+```
+
+**Key insight:** embedding is the slow step (GPU: minutes, CPU: hours) but only runs once per track. Classifying is a cheap matrix multiply — tweak `categories.yaml` and re-run `classify` as many times as you like without re-embedding.
+
 ## Setup (Windows)
 
 From the repo root (Python 3.9+; this repo’s venv was created with `py -3.9`):
