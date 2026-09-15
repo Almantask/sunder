@@ -1,8 +1,61 @@
 # Sunder — Ambience track categorizer
 
-Local CLI that sorts a large library of AI-generated ambience tracks into **your** categories using zero-shot [CLAP](https://huggingface.co/laion/larger_clap_music) (audio–text matching). No training and no cloud API: embeddings are computed once, cached on disk, then classification is cheap to re-run when you tweak category wording.
+Local CLI **and desktop app** that sorts a large library of AI-generated ambience tracks into **your** categories using zero-shot [CLAP](https://huggingface.co/laion/larger_clap_music) (audio–text matching). No training and no cloud API: embeddings are computed once, cached on disk, then classification is cheap to re-run when you tweak category wording.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
+## Screenshots
+
+The desktop app is the usual way to run the pipeline. Double-click **`Sunder.exe`**, or `python -m sunder app`. Tabs cover library jobs, taxonomy edits, the review queue, and organize settings. The job console stays docked on the right; the player stays at the bottom.
+
+### Library
+
+Pick a folder, then **Embed**, **Scan**, **Report**, or **Full analysis** (embed → classify → report). Stats show how many tracks were found, cached, classified, and still waiting in Review.
+
+![Library tab with folder picker, embed/scan/report actions, cache stats, and job console](docs/screenshots/library.jpg)
+
+### Categories
+
+Edit `categories.yaml` in the app. Extra prompt phrases usually improve matching. Saving and re-classifying does **not** re-embed.
+
+![Categories tab showing the YAML taxonomy editor](docs/screenshots/categories.jpg)
+
+### Review
+
+Work the **To review** queue: listen in the in-app player, accept the suggestion, type your own category, or reject. `A` accepts and `R` rejects. Open **Reviewed** to see decisions and comments. Accepted/rejected tracks stay out of the queue across re-classify.
+
+![Review tab with pending tracks, confidence meters, and a selected low-confidence suggestion](docs/screenshots/review.jpg)
+
+![Review decisions with accepted and rejected badges, comments, and Accept/Reject actions](docs/screenshots/review-decisions.jpg)
+
+### Settings
+
+Tune recursive scan, device, confidence threshold, min margin, CSV/tag output, and **Organize** (copy into category folders by default; move asks you to type `MOVE`).
+
+![Settings tab with scan options, classify sliders, tag checkbox, and copy/move organize](docs/screenshots/settings.jpg)
+
+### HTML report
+
+`sunder report` (or **Report** / **Open HTML report**) writes `report.html`: tracks grouped by category, inline players, low-confidence flags, and accept/reject comments.
+
+![HTML report with needs-review tracks, confidence flags, comments, and inline audio players](docs/screenshots/report.jpg)
+
+## Current features
+
+- **Zero-shot CLAP classification** — match tracks to prompt phrases, no training set and no cloud API.
+- **Desktop app** — Library, Categories, Review, and Settings, plus a thin `Sunder.exe` launcher that starts this repo’s `.venv`.
+- **Background jobs** — embed, classify, report, organize, and full analysis run on a worker thread; cancel keeps embeddings already finished.
+- **Embedding cache** — three ~10 s windows per track, keyed by path + size + mtime. Unchanged files are skipped.
+- **Fast taxonomy iteration** — edit category wording and re-run classify without re-embedding.
+- **Review queue** — pending / reviewed / all chips, search and category filters, custom categories, comments, keyboard shortcuts.
+- **In-app player** — play from Review (spacebar, row button, or the footer).
+- **HTML report** — grouped players, low-confidence section, review flags and comments.
+- **Organize** — copy (default) or move into `organized/<category>/`. Rejected tracks are skipped; accepted tracks use the category you confirmed.
+- **Optional audio tags** — ID3 / Vorbis genre plus `SUNDER_*` frames (`sunder tag` or the Settings checkbox).
+- **CLI** — `embed`, `classify`, `report`, `organize`, `tag` for the same pipeline.
+- **Recursive library scan** — `.mp3`, `.wav`, `.flac`, `.ogg`; hidden tooling dirs are skipped.
+- **Shipped D&D taxonomy** — `categories.yaml` is pre-filled from [`suno/prompts/`](suno/prompts/).
+- **Device picker** — `auto` / `cuda` / `cpu` / `mps`.
 
 ## How it works
 
@@ -62,7 +115,7 @@ The first `embed` / `classify` run downloads `laion/larger_clap_music` from Hugg
 
 ## Desktop app
 
-Double-click **`Sunder.exe`** in the repo folder, or from a terminal:
+Screenshots of each tab are at the top of this README. Double-click **`Sunder.exe`** in the repo folder, or from a terminal:
 
 ```powershell
 .\.venv\Scripts\python -m sunder app
